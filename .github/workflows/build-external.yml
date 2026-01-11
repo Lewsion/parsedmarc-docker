@@ -20,12 +20,13 @@ jobs:
           repository: domainaware/parsedmarc
           ref: master
 
-      # Step 2: Dynamically lowercase the Org/Owner name for Docker
+      # Step 2: Dynamically lowercase the Org name and set to GITHUB_ENV
       - name: Set lowercase owner name
         run: |
-          echo "OWNER_LC=${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' >> $GITHUB_ENV
+          OWNER="${{ github.repository_owner }}"
+          echo "OWNER_LC=${OWNER,,}" >> $GITHUB_ENV
 
-      # Step 3: Log in to your GitHub Container Registry
+      # Step 3: Log in to GitHub Container Registry (GHCR)
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -33,12 +34,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Build and Push using the lowercase environment variable
+      # Step 4: Build and Push (Referencing env.OWNER_LC)
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          # We use ${{ env.OWNER_LC }} which we set in Step 2
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/parsedmarc:latest
             ghcr.io/${{ env.OWNER_LC }}/parsedmarc:${{ github.sha }}
