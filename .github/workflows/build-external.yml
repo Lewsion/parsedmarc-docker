@@ -1,9 +1,9 @@
-name: Remote Build DMARC Engine (Oracle Native)
+name: Remote Build DMARC Engine
 
 on:
   push:
     branches:
-      - master
+      - main
   schedule:
     - cron: '0 0 * * 0'
   workflow_dispatch:
