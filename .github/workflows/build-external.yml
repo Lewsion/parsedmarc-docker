@@ -11,7 +11,9 @@ on:
 jobs:
   build-and-push:
     # This targets your specific self-hosted runner group
-    runs-on: [self-hosted, Oracle]
+    runs-on:
+        group: Oracle
+        labels: self-hosted
     permissions:
       contents: read
       packages: write
