@@ -1,26 +1,39 @@
-name: Remote Build DMARC Engine
+name: Remote Build DMARC Engine (Oracle Native)
 
 on:
+  push:
+    branches:
+      - master
   schedule:
-    - cron: '0 0 * * 0' # Automatically check for updates every Sunday
-  workflow_dispatch: # Allows you to click a button to force a build
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    # This targets your specific self-hosted runner group
+    runs-on: [self-hosted, Oracle]
     permissions:
       contents: read
       packages: write
 
     steps:
-      # Step 1: Clone the ORIGINAL repository
       - name: Checkout Upstream Code
         uses: actions/checkout@v6
         with:
           repository: domainaware/parsedmarc
           ref: master
 
-      # Step 2: Use Metadata Action to generate clean, lowercase tags
+      # Step 1: Set up Docker Buildx
+      # On self-hosted runners, this ensures the builder is ready
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 2: Set up QEMU 
+      # Even though your runner is ARM64, you still need this to build the AMD64 version
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Step 3: Metadata Action
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -28,9 +41,9 @@ jobs:
           images: ghcr.io/lewsion/parsedmarc
           tags: |
             type=raw,value=latest
-            type=sha,prefix=,suffix=,format=short
+            type=sha,format=short
 
-      # Step 3: Log in to GitHub Container Registry
+      # Step 4: Login to GHCR
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -38,11 +51,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Build and Push (Referencing the clean tags from Step 2)
+      # Step 5: Build and Push Multi-Arch
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          # This builds for both. ARM64 will be lightning fast, AMD64 will be emulated.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Optimization: Use the local runner's cache to speed up future builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
